@@ -1,0 +1,84 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: mvn-build
+  namespace: playground
+spec:
+  params:
+  - description: URL of the git repository
+    name: gitUrl
+    type: string
+  - description: git revision to checkout
+    name: gitRevision
+    type: string
+    default: develop
+  - description: Name of the docker image
+    name: imageName
+    type: string
+  - description: Context path to deployment.yaml-Template
+    name: deploymentTemplateContext
+    type: string
+  tasks:
+  - name: checkout
+    params:
+    - name: url
+      value: $(params.gitUrl)
+    - name: revision
+      value: $(params.gitRevision)
+    - name: subdirectory
+      value: ""
+    - name: deleteExisting
+      value: "true"
+    taskRef:
+      kind: Task
+      name: git-clone
+    workspaces:
+    - name: output
+      workspace: pipeline-workspace
+  - name: maven-run
+    params:
+    - name: GOALS
+      value:
+      - clean
+      - verify
+    runAfter:
+    - checkout
+    taskRef:
+      kind: Task
+      name: maven-cached
+    workspaces:
+    - name: maven
+      workspace: maven-workspace
+    - name: source
+      workspace: pipeline-workspace
+  - name: docker-build
+    runAfter: 
+    - maven-run
+    params:
+    - name: IMAGE
+      value: $(params.imageName)
+    taskRef:
+      kind: Task
+      name: kaniko
+    workspaces:
+    - name: source
+      workspace: pipeline-workspace
+  - name: deploy
+    runAfter:
+    - docker-build
+    taskRef:
+      kind: Task
+      name: deploy-application
+    params:
+    - name: imageName
+      value: $(params.imageName)@$(tasks.docker-build.results.IMAGE-DIGEST)
+    - name: contextDir
+      value: $(params.deploymentTemplateContext)
+    - name: pathToYamlFile
+      value: deployment.yaml
+    workspaces:
+    - name: source
+      workspace: pipeline-workspace
+  workspaces:
+  - name: pipeline-workspace
+  - name: maven-workspace

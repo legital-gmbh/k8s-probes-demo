@@ -1,0 +1,35 @@
+kind: StorageClass
+apiVersion: storage.k8s.io/v1
+metadata:
+  name: tekton
+provisioner: k8s.io/minikube-hostpath
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+
+---
+
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: tekton-volume
+  labels:
+    type: local
+spec:
+  storageClassName: tekton
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/data/volumes/tekton"
+
+---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: config-artifact-pvc
+  namespace: tekton-pipelines
+data:
+  size: 5Gi
+  storageClassName: tekton

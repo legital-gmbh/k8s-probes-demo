@@ -1,0 +1,28 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: probes-run-
+spec:
+  pipelineRef:
+    name: mvn-build
+  serviceAccountName: build-bot
+  params:
+    - name: gitUrl
+      # Replace the below value with the SSH-URL of your repository
+      value: git@github.com:legital-gmbh/k8s-probes-demo.git
+    - name: gitRevision
+      # Replace the below value with the name of the branch you want to build.
+      value: main
+    - name: imageName
+      value: registry.local/k8s-probes-demo:latest
+    - name: deploymentTemplateContext
+      value: k8s/application
+  workspaces:
+    - name: pipeline-workspace
+      persistentVolumeClaim:
+        claimName: build-pvc
+      subPath: workspace
+    - name: maven-workspace
+      persistentVolumeClaim:
+        claimName: build-pvc
+      subPath: maven

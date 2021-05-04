@@ -1,0 +1,53 @@
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: Trigger
+metadata:
+  name: start-probes-build
+spec:
+  bindings:
+    - name: gitRevision
+      value: $(body.revision)
+  template:
+    spec:
+      params:
+        - name: gitRevision
+          description: The revision to build
+          default: develop
+      resourcetemplates:
+        - apiVersion: tekton.dev/v1beta1
+          kind: PipelineRun
+          metadata:
+            generateName: probes-run-
+          spec:
+            pipelineRef:
+              name: mvn-build
+            serviceAccountName: build-bot
+            params:
+              - name: gitUrl
+                value: git@github.com:legital-gmbh/k8s-probes-demo.git
+              - name: gitRevision
+                value: $(tt.params.gitRevision)
+              - name: imageName
+                value: registry.local/k8s-probes-demo:latest
+              - name: deploymentTemplateContext
+                value: k8s/application
+            workspaces:
+              - name: pipeline-workspace
+                persistentVolumeClaim:
+                  claimName: build-pvc
+                subPath: workspace
+              - name: maven-workspace
+                persistentVolumeClaim:
+                  claimName: build-pvc
+                subPath: maven
+
+---
+
+apiVersion: triggers.tekton.dev/v1alpha1
+kind: EventListener
+metadata:
+  name: start-probes-build-listener
+spec:
+  serviceAccountName: build-bot
+  triggers:
+    - triggerRef: start-probes-build
+  serviceType: NodePort
